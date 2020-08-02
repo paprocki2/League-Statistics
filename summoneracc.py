@@ -13,10 +13,6 @@ def get_watcher():
      lol_watcher = LolWatcher(API_KEY)
      return lol_watcher 
 
-def get_ddragon():
-     ddragon = LolWatcher.data_dragon
-     return ddragon
-
 def get_summoner(lol_watcher):
      summoner = lol_watcher.summoner.by_name(region, SUMMONER_NAME)
      print(summoner)
@@ -84,8 +80,6 @@ def main():
      lol_watcher = get_watcher()
      summoner = get_summoner(lol_watcher)
      participants = get_matchlist(lol_watcher, summoner, region)
-     ddragon = get_ddragon()
-
      get_champion(get_champ_dict(lol_watcher), participants)
 
 if __name__ == "__main__":
