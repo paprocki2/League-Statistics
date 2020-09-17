@@ -2,21 +2,23 @@ from riotwatcher import LolWatcher, ApiError, RateLimiter
 from settings import API_KEY, SUMMONER_NAME, DB_IP, DB_PASS
 import pandas as pd
 import mysql.connector
+import requests
+import time
 
 region = 'na1'
-def add_to_database(stats):
+def add_to_database(lol_watcher, my_matchlist, champ_dict, item_dict, spell_dict):
      connector = mysql.connector.connect(user='root', password=DB_PASS, host=DB_IP, database='Matches')
      cur = connector.cursor()
      insert = """INSERT INTO Matches(gameId, participantId, summoner, champion, spell1, spell2, win, kills, deaths, assists, 
      level, minionsKilled, item0, item1, item2, item3, item4, item5, trinket) 
      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-     for row in stats:
+     """ for row in stats:
           summonerData = (row['gameId'], row['participantId'], row['summoner'], row['champion'], row['spell1'], row['spell2'],
           row['win'], row['kills'], row['deaths'], row['assists'], row['level'], row['minionsKilled'], row['item0'],
           row['item1'], row['item2'], row['item3'], row['item4'], row['item5'], row['trinket'])
           cur.execute(insert, summonerData)
      print("success")
-     connector.commit()
+     connector.commit() """
      return cur
 
 def get_watcher():
@@ -93,7 +95,7 @@ def get_match(lol_watcher, my_matchlist, champ_dict, item_dict, spell_dict):
           player = row['player']
           participants_row['summonerName'] = player['summonerName']
           participants.append(participants_row)
-     print(participants)
+     #print(participants)
      for row in match_detail['participants']:
           participants_row = {}
           participants_row['gameId'] = gameId
@@ -120,9 +122,9 @@ def get_match(lol_watcher, my_matchlist, champ_dict, item_dict, spell_dict):
           stats.append(participants_row)
      df1 = pd.DataFrame(participants)
      df2 = pd.DataFrame(stats)
-     print(df1)
+     """ print(df1)
      print(df2.to_string())
-     print(stats)
+     print(stats) """
      """insert = INSERT INTO Matches(gameId, participantId, summoner, champion, spell1, spell2, win, kills, deaths, assists, 
      level, minionsKilled, item0, item1, item2, item3, item4, item5, trinket) 
      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -139,10 +141,51 @@ def main():
      champ_dict = get_champ_dict(lol_watcher)
      item_dict = get_item_dict(lol_watcher)
      spell_dict = get_spell_dict(lol_watcher)
-     index = 2
-     my_matchlist = get_matchlist(lol_watcher, region, summoner, index)
-     stats = get_match(lol_watcher, my_matchlist, champ_dict, item_dict, spell_dict)
-     cursor = add_to_database(stats)
+
+     connector = mysql.connector.connect(user='root', password=DB_PASS, host=DB_IP, database='Matches')
+     cur = connector.cursor()
+     insert = """INSERT INTO Matches(gameId, participantId, summoner, champion, spell1, spell2, win, kills, deaths, assists, 
+     level, minionsKilled, item0, item1, item2, item3, item4, item5, trinket) 
+     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+     index = 0
+     range = 2000
+     while index < range:
+          try:
+               my_matchlist = get_matchlist(lol_watcher, region, summoner, index)
+               print(index)
+               stats = get_match(lol_watcher, my_matchlist, champ_dict, item_dict, spell_dict)
+               checkGame = """SELECT * FROM Matches WHERE gameId = %s """
+               gameId = ((stats[0]['gameId']))
+               print(gameId)
+               cur.execute(checkGame, (gameId,))
+               inDb = cur.fetchall()
+               if len(inDb) > 1:
+                    index += 1
+                    continue
+               for row in stats:
+                    summonerData = (row['gameId'], row['participantId'], row['summoner'], row['champion'], row['spell1'], row['spell2'],
+                    row['win'], row['kills'], row['deaths'], row['assists'], row['level'], row['minionsKilled'], row['item0'],
+                    row['item1'], row['item2'], row['item3'], row['item4'], row['item5'], row['trinket'])
+                    cur.execute(insert, summonerData)
+                    print("success")
+                    connector.commit()
+               index += 1
+          except requests.HTTPError as e:
+               time.sleep(1)
+               print(e.__class__.__name__)
+               print(e)
+               print("Something went wrong")
+               if index > 0:
+                    index -= 1
+               continue
+          except Exception as ex:
+               print(ex.__class__.__name__)
+               print(ex)
+               break
+     cur.execute("SELECT * FROM matches WHERE summoner LIKE 'Poprocks12' ")
+     result = cur.fetchall()
+     #for x in result:
+          #print(x)
      
      
 
